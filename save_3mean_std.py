@@ -1,12 +1,9 @@
-''' 
-This script shows how to predict stock prices using a basic RNN 
-'''
 import tensorflow as tf
 import numpy as np
 import os
 import sys
 
-tf.set_random_seed(777)  # reproducibility 
+tf.set_random_seed(777)  # reproducibility
 
 timesteps = seq_length = 7
 data_dim = 5
@@ -15,11 +12,11 @@ output_dim = 1
 learning_rate = 0.01
 iterations = 500
 cnt = 0
+
 file_list = []
 filenames = []
 
-# aaa = int(sys.argv[1]) 
-ccc = int(sys.argv[1])
+eee = int(sys.argv[1])
 
 for (path, dir, files) in os.walk(os.getcwd()):
     for filename in files:
@@ -30,7 +27,7 @@ for (path, dir, files) in os.walk(os.getcwd()):
 
 input_len = len(file_list)
 
-for i in range(ccc, ccc + 1):
+for i in range(eee, eee + 1):
     input_data = []
     close_data = []
     dataInput = []
@@ -44,6 +41,7 @@ for i in range(ccc, ccc + 1):
     for a in lines:
         temp = a.split(',')
         temp = [float(t) for t in temp[:]]
+
         temp[4], temp[5] = temp[5], temp[4]
         temp1.append(temp[1])
         temp2.append(temp[2])
@@ -53,11 +51,30 @@ for i in range(ccc, ccc + 1):
 
     f.close()
 
-    meanOpen, stdOpen = np.mean(temp1), np.std(temp1)
-    meanHigh, stdHigh = np.mean(temp2), np.std(temp2)
-    meanLow, stdLow = np.mean(temp3), np.std(temp3)
-    meanVolume, stdVolume = np.mean(temp4), np.std(temp4)
-    meanClose, stdClose = np.mean(temp5), np.std(temp5)
+    openMean = []
+    highMean = []
+    lowMean = []
+    volumeMean = []
+    closeMean = []
+
+    for k in range(len(temp1) - 2):
+        _open = (temp1[k] + temp1[k + 1] + temp1[k + 2]) / 3
+        _high = (temp2[k] + temp2[k + 1] + temp2[k + 2]) / 3
+        _low = (temp3[k] + temp3[k + 1] + temp3[k + 2]) / 3
+        _volume = (temp4[k] + temp4[k + 1] + temp4[k + 2]) / 3
+        _close = (temp5[k] + temp5[k + 1] + temp5[k + 2]) / 3
+
+        openMean.append(_open)
+        highMean.append(_high)
+        lowMean.append(_low)
+        volumeMean.append(_volume)
+        closeMean.append(_close)
+
+    meanOpen, stdOpen = np.mean(openMean), np.std(openMean)
+    meanHigh, stdHigh = np.mean(highMean), np.std(highMean)
+    meanLow, stdLow = np.mean(lowMean), np.std(lowMean)
+    meanVolume, stdVolume = np.mean(volumeMean), np.std(volumeMean)
+    meanClose, stdClose = np.mean(closeMean), np.std(closeMean)
 
     for line in lines:
         x = line.split(',')
@@ -88,7 +105,7 @@ for i in range(ccc, ccc + 1):
     Y = tf.placeholder(tf.float32, [None, 1])
     Y_prev = tf.placeholder(tf.float32, [None, 1])
 
-    # build a LSTM network 
+    # build a LSTM network
     cell = tf.contrib.rnn.BasicLSTMCell(num_units=hidden_dim, state_is_tuple=True, activation=tf.tanh)
     outputs, _states = tf.nn.dynamic_rnn(cell, X, dtype=tf.float32)
     Y_pred = tf.contrib.layers.fully_connected(outputs[:, -1], output_dim, activation_fn=None)
@@ -96,13 +113,13 @@ for i in range(ccc, ccc + 1):
         tf.cast((Y_pred - Y_prev) * (Y - Y_prev) < 0, tf.float32) * 2 + tf.cast((Y_pred - Y_prev) * (Y - Y_prev) >= 0,
                                                                                 tf.float32))
 
-    # cost/loss 
-    loss = tf.reduce_mean(tf.square(cost))  # sum of the squares 
-    # optimizer 
+    # cost/loss
+    loss = tf.reduce_mean(tf.square(cost))  # sum of the squares
+    # optimizer
     optimizer = tf.train.AdamOptimizer(learning_rate)
     train = optimizer.minimize(loss)
 
-    # RMSE 
+    # RMSE
     targets = tf.placeholder(tf.float32, [None, 1])
     predictions = tf.placeholder(tf.float32, [None, 1])
     rmse = tf.sqrt(tf.reduce_mean(tf.square(targets - predictions)))
@@ -111,31 +128,31 @@ for i in range(ccc, ccc + 1):
         init = tf.global_variables_initializer()
         sess.run(init)
 
-        # Training step 
+        # Training step
         for k in range(iterations):
             _, step_loss = sess.run([train, loss], feed_dict={X: trainInput, Y: trainClose, Y_prev: trainClosePrev})
 
-            # if k % 100 is 0: 
-            # print("[step: {}] loss: {}".format(k, step_loss)) 
+            # if k % 100 is 0:
+            # print("[step: {}] loss: {}".format(k, step_loss))
 
-        # Test step 
+        # Test step
         test_predict = sess.run(Y_pred, feed_dict={X: testInput})
         rmse = sess.run(rmse, feed_dict={
             targets: testClose, predictions: test_predict})
-        # print("RMSE: {}".format(rmse)) 
-        # print(testClose) 
+        # print("RMSE: {}".format(rmse))
+        # print(testClose)
     print(test_predict[-1])
 
-    f = open("C:\\Users\\Ryu\\PycharmProjects\\savebystock\\5.txt", 'a')
+    f = open("C:\\Users\\Ryu\\PycharmProjects\\savebystock\\7.txt", 'a')
     f.write(str(filenames[i]) + " ")
     f.write(str(testClose[-2] * (stdClose) + meanClose) + " ")
-    f.write(str(test_predict[-2] * (stdClose) + meanClose) + " ")
+    f.write(str(test_predict[-2] * (stdClose) + meanClose - temp5[-3] - temp5[-2]) + " ")
     f.write(str(testClose[-1] * (stdClose) + meanClose) + " ")
-    f.write(str(test_predict[-1] * (stdClose) + meanClose) + '\n')
+    f.write(str(test_predict[-1] * (stdClose) + meanClose - temp5[-2] - temp5[-1]) + '\n')
     f.close()
 
     num1 = testClose[-2] * (stdClose) + meanClose
-    num2 = test_predict[-2] * (stdClose) + meanClose
+    num2 = 3 * (test_predict[-2] * (stdClose) + meanClose) - temp5[-3] - temp5[-2]
     num3 = testClose[-1] * (stdClose) + meanClose
 
     if (num1 - num3 < 0 and num1 - num2 > 0):
@@ -145,8 +162,14 @@ for i in range(ccc, ccc + 1):
 
     f.close()
 
-f = open("C:\\Users\\Ryu\\PycharmProjects\\savebystock\\5.txt", 'a')
+f = open("C:\\Users\\Ryu\\PycharmProjects\\savebystock\\7.txt", 'a')
 
 f.write(str(cnt) + "\n")
 
 f.close()
+
+# plt.plot(testClose)
+# plt.plot(test_predict)
+# fig = plt.gcf()
+# savefig(r'C:\Users\Ryu\Desktop\kosdaq_sbs\%s.jpg' % filenames[i].split('.')[0])
+# plt.show()

@@ -1,18 +1,17 @@
 import tensorflow as tf
 import numpy as np
 import os
-import matplotlib.pyplot as plt
-from pylab import savefig
 import sys
 
 tf.set_random_seed(777)  # reproducibility
 
 timesteps = seq_length = 7
 data_dim = 5
-hidden_dim = 10
+hidden_dim = 20
 output_dim = 1
 learning_rate = 0.01
 iterations = 500
+cnt = 0
 
 file_list = []
 filenames = []
@@ -41,7 +40,7 @@ for i in range(bbb, bbb + 1):
 
     for a in lines:
         temp = a.split(',')
-        temp = [float(i) for i in temp[:]]
+        temp = [float(t) for t in temp[:]]
 
         temp[4], temp[5] = temp[5], temp[4]
         temp1.append(temp[1])
@@ -79,7 +78,7 @@ for i in range(bbb, bbb + 1):
 
     for line in lines:
         x = line.split(',')
-        x = [float(i) for i in x[:]]
+        x = [float(t) for t in x[:]]
         x[4], x[5] = x[5], x[4]
         x[1] = (x[1] - minOpen) / (maxOpen - minOpen + 1e-7)
         x[2] = (x[2] - minHigh) / (maxHigh - minHigh + 1e-7)
@@ -96,22 +95,26 @@ for i in range(bbb, bbb + 1):
         dataInput.append(_x)
         dataClose.append([_y])
 
-    train_size = int(len(dataClose) * 0.7)
+    train_size = int(len(dataClose) * 0.7) - 1
     test_size = len(dataClose) - train_size
-    trainInput, testInput = np.array(dataInput[0:train_size]), np.array(dataInput[train_size:len(dataInput)])
-    trainClose, testClose = np.array(dataClose[0:train_size]), np.array(dataClose[train_size:len(dataClose)])
+    trainInput, testInput = np.array(dataInput[1:train_size]), np.array(dataInput[train_size:len(dataInput)])
+    trainClose, testClose = np.array(dataClose[1:train_size]), np.array(dataClose[train_size:len(dataClose)])
+    trainClosePrev = np.array(dataClose[0:train_size - 1])
 
     X = tf.placeholder(tf.float32, [None, seq_length, data_dim])
     Y = tf.placeholder(tf.float32, [None, 1])
+    Y_prev = tf.placeholder(tf.float32, [None, 1])
 
     # build a LSTM network
     cell = tf.contrib.rnn.BasicLSTMCell(num_units=hidden_dim, state_is_tuple=True, activation=tf.tanh)
     outputs, _states = tf.nn.dynamic_rnn(cell, X, dtype=tf.float32)
-    Y_pred = tf.contrib.layers.fully_connected(
-        outputs[:, -1], output_dim, activation_fn=None)
+    Y_pred = tf.contrib.layers.fully_connected(outputs[:, -1], output_dim, activation_fn=None)
+    cost = (Y - Y_pred) * (
+        tf.cast((Y_pred - Y_prev) * (Y - Y_prev) < 0, tf.float32) * 2 + tf.cast((Y_pred - Y_prev) * (Y - Y_prev) >= 0,
+                                                                                tf.float32))
 
     # cost/loss
-    loss = tf.reduce_mean(tf.square(Y_pred - Y))  # sum of the squares
+    loss = tf.reduce_mean(tf.square(cost))  # sum of the squares
     # optimizer
     optimizer = tf.train.AdamOptimizer(learning_rate)
     train = optimizer.minimize(loss)
@@ -127,7 +130,7 @@ for i in range(bbb, bbb + 1):
 
         # Training step
         for k in range(iterations):
-            _, step_loss = sess.run([train, loss], feed_dict={X: trainInput, Y: trainClose})
+            _, step_loss = sess.run([train, loss], feed_dict={X: trainInput, Y: trainClose, Y_prev: trainClosePrev})
 
             # if k % 100 is 0:
             # print("[step: {}] loss: {}".format(k, step_loss))
@@ -140,7 +143,7 @@ for i in range(bbb, bbb + 1):
         # print(testClose)
     print(test_predict[-1])
 
-    f = open("C:\\Users\\Ryu\\PycharmProjects\\savebystock\\1.txt", 'a')
+    f = open("C:\\Users\\Ryu\\PycharmProjects\\savebystock\\6.txt", 'a')
     f.write(str(filenames[i]) + " ")
     f.write(str([temp5[-2]]) + " ")
     f.write(str((3 * (test_predict[-2] * (maxClose - minClose + 1e-7) + minClose)) - temp5[-3] - temp5[-2]) + " ")
@@ -148,8 +151,25 @@ for i in range(bbb, bbb + 1):
     f.write(str((3 * (test_predict[-1] * (maxClose - minClose + 1e-7) + minClose)) - temp5[-2] - temp5[-1]) + '\n')
     f.close()
 
-    # plt.plot(testClose)
-    # plt.plot(test_predict)
-    # fig = plt.gcf()
-    # savefig(r'C:\Users\Ryu\Desktop\kosdaq_sbs\%s.jpg' % filenames[i].split('.')[0])
-    # plt.show()
+    num1 = temp5[-2]
+    num2 = 3 * (test_predict[-2] * (maxClose - minClose + 1e-7) + minClose) - temp5[-3] - temp5[-2]
+    num3 = temp5[-1]
+
+    if (num1 - num3 < 0 and num1 - num2 > 0):
+        cnt += 1
+    elif (num1 - num3 > 0 and num1 - num2 < 0):
+        cnt += 1
+
+    f.close()
+
+f = open("C:\\Users\\Ryu\\PycharmProjects\\savebystock\\6.txt", 'a')
+
+f.write(str(cnt) + "\n")
+
+f.close()
+
+# plt.plot(testClose)
+# plt.plot(test_predict)
+# fig = plt.gcf()
+# savefig(r'C:\Users\Ryu\Desktop\kosdaq_sbs\%s.jpg' % filenames[i].split('.')[0])
+# plt.show()
